@@ -23,12 +23,17 @@ Este proyecto es un servidor HTTP simple escrito en Go que escanea códigos QR d
 
 ## Uso
 
-1. Ejecuta el servidor:
+1. Compila el servidor para Linux con arquitectura amd64:
     ```sh
-    go run main.go
+    GOOS=linux GOARCH=amd64 go build -o app
     ```
 
-2. Envía una solicitud POST a `http://localhost:8888/scan` con un cuerpo de datos de formulario que contenga un archivo de imagen con la clave `code`.
+2. Ejecuta el servidor:
+    ```sh
+    ./main
+    ```
+
+3. Envía una solicitud POST a `http://localhost:8888/scan` con un cuerpo de datos de formulario que contenga un archivo de imagen con la clave `code`.
 
     Ejemplo usando `curl`:
     ```sh

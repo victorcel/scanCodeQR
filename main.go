@@ -14,18 +14,22 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"log"
+	"mime/multipart"
 	"net/http"
 	"strings"
 )
 
 func main() {
-	addr := "localhost:8888"
+	addr := ":8888"
 	mux := http.NewServeMux()
 	mux.HandleFunc("/scan", post)
 	server := &http.Server{Addr: addr, Handler: mux}
+	log.Printf("Server started on: %s", addr)
 	if err := server.ListenAndServe(); err != nil {
-		fmt.Printf("Failed to start server: %v", err)
+		log.Println("Failed to start server: ", err)
 	}
+
 }
 
 func post(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +49,12 @@ func post(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get form file: %v", err))
 		return
 	}
-	defer file.Close()
+	defer func(file multipart.File) {
+		err := file.Close()
+		if err != nil {
+			log.Printf("Failed to close file: %v", err)
+		}
+	}(file)
 
 	b := new(bytes.Buffer)
 	if _, err := io.Copy(b, file); err != nil {
@@ -58,7 +67,7 @@ func post(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Internal server error: %v", err))
 		return
 	}
-
+	log.Println(res)
 	respondWithJSON(w, http.StatusOK, map[string]string{"result": res})
 }
 
@@ -96,5 +105,9 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	response, _ := json.Marshal(payload)
 	w.WriteHeader(code)
-	w.Write(response)
+	_, err := w.Write(response)
+	if err != nil {
+		log.Printf("Failed to write response: %v", err)
+		return
+	}
 }

@@ -1,0 +1,19 @@
+services:
+  app:
+    container_name: scan-code-qr
+    image: golang:1.23-alpine
+    restart: always
+    ports:
+      - "8088:8888"
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ./app
+    networks:
+      - main-external-network
+      - scancode-qr-external-network
+networks:
+  main-external-network:
+    external: true
+  scancode-qr-external-network:
+    external: true

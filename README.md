@@ -1,4 +1,4 @@
-# Escáner de Códigos QR
+# Escáner de Códigos QR en Go Api Rest
 
 Este proyecto es un servidor HTTP simple escrito en Go que escanea códigos QR de imágenes subidas y devuelve el contenido decodificado en formato JSON.
 

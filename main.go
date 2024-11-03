@@ -2,25 +2,20 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/makiuchi-d/gozxing"
+	"github.com/makiuchi-d/gozxing/multi/qrcode"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/tiff"
+	_ "golang.org/x/image/webp"
 	"image"
-	"mime/multipart"
-
-	// import gif, jpeg, png
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
 	"net/http"
 	"strings"
-
-	// import bmp, tiff, webp
-	_ "golang.org/x/image/bmp"
-	_ "golang.org/x/image/tiff"
-	_ "golang.org/x/image/webp"
-
-	"github.com/makiuchi-d/gozxing"
-	"github.com/makiuchi-d/gozxing/multi/qrcode"
 )
 
 func main() {
@@ -31,52 +26,40 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Printf("Failed to start server: %v", err)
 	}
-
 }
 
-// handle post request
 func post(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	if r.Method != "POST" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		respondWithError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
+
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		msg := fmt.Sprintf("Failed to parse form: %v", err)
-		http.Error(w, msg, http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to parse form: %v", err))
 		return
 	}
+
 	file, _, err := r.FormFile("code")
 	if err != nil {
-		msg := fmt.Sprintf("Failed to get form file: %v", err)
-		http.Error(w, msg, http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get form file: %v", err))
 		return
 	}
-	defer func(file multipart.File) {
-		err := file.Close()
-		if err != nil {
-			msg := fmt.Sprintf("Failed to close file: %v", err)
-			http.Error(w, msg, http.StatusInternalServerError)
-			return
-		}
-	}(file)
+	defer file.Close()
+
 	b := new(bytes.Buffer)
 	if _, err := io.Copy(b, file); err != nil {
-		msg := fmt.Sprintf("Failed to read file: %v", err)
-		http.Error(w, msg, http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read file: %v", err))
 		return
 	}
+
 	res, err := scan(b.Bytes())
 	if err != nil {
-		msg := fmt.Sprintf("Internal server error: %v", err)
-		http.Error(w, msg, http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Internal server error: %v", err))
 		return
 	}
-	_, err = w.Write([]byte(res))
-	if err != nil {
-		msg := fmt.Sprintf("Failed to write response: %v", err)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return
-	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{"result": res})
 }
 
 func scan(b []byte) (string, error) {
@@ -88,7 +71,6 @@ func scan(b []byte) (string, error) {
 	source := gozxing.NewLuminanceSourceFromImage(img)
 	bin := gozxing.NewHybridBinarizer(source)
 	bbm, err := gozxing.NewBinaryBitmap(bin)
-
 	if err != nil {
 		return "", fmt.Errorf("error during processing: %v", err)
 	}
@@ -98,11 +80,21 @@ func scan(b []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("unable to decode QRCode: %v", err)
 	}
+
 	var strRes []string
 	for _, element := range result {
 		strRes = append(strRes, element.String())
 	}
 
-	res := strings.Join(strRes, "\n")
-	return res, nil
+	return strings.Join(strRes, "\n"), nil
+}
+
+func respondWithError(w http.ResponseWriter, code int, message string) {
+	respondWithJSON(w, code, map[string]string{"error": message})
+}
+
+func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+	response, _ := json.Marshal(payload)
+	w.WriteHeader(code)
+	w.Write(response)
 }

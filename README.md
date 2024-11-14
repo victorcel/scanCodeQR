@@ -27,6 +27,12 @@ Este proyecto es un servidor HTTP simple escrito en Go que escanea códigos QR d
     ```sh
     GOOS=linux GOARCH=amd64 go build -o app
     ```
+   Windows:
+    ```sh
+    set GOOS=linux
+    set GOARCH=amd64
+    go build -o app
+    ```
 
 2. Ejecuta el servidor:
     ```sh
